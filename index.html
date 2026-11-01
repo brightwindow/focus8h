@@ -57,6 +57,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .xpbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s}
 .stats.three{grid-template-columns:repeat(3,1fr)}
 .time.small{font-size:2rem}
+.done{width:100%;padding:20px;font-size:1.15rem}
 .tiers{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
 .tiers span{font-size:.72rem;text-align:center;padding:7px 2px;border:1px solid var(--line);border-radius:6px;color:var(--mute);transition:all .4s}
 .tiers span.on{border-color:var(--accent);color:var(--fg);background:color-mix(in srgb,var(--accent) 16%,transparent)}
@@ -81,7 +82,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <div class="wrap">
   <header>
     <h1>8시간 몰입실</h1>
-    <span class="sub">50분 집중 · 10분 휴식 × 8 · v8</span>
+    <span class="sub">50분 집중 · 10분 휴식 × 8 · v9</span>
   </header>
 
   <div class="ring">
@@ -128,6 +129,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <button class="ghost" id="fs">전체화면</button>
     <button class="ghost" id="reset">초기화</button>
   </div>
+  <button class="primary done" id="doneBtn">한 문제 끝! (스페이스바)</button>
+  <p class="note">문제 하나 끝낼 때마다 누르세요. 연달아 누를수록 소리가 한 칸씩 올라가고 5연속 팡파레, 10연속 잭팟. 한참 안 누르면 음악이 점점 먹먹해집니다.</p>
 
   <div class="panel">
     <div class="seg" role="group" aria-label="음악 종류">
@@ -168,7 +171,7 @@ const save=()=>{try{localStorage.setItem("focus8h",JSON.stringify({...S,acc:elap
 const elapsed=()=>Math.min(TOTAL,S.acc+(S.running?(Date.now()-S.runStart)/1000:0));
 
 /* ---------- 오디오 엔진 ---------- */
-let ctx,master,musicBus,noiseGain,padFilter,rev,sched,lfo;
+let ctx,master,musicBus,toneF,noiseGain,padFilter,rev,sched,lfo;
 const bpmFor=m=>m==="pop"?132:m==="drive"?124:70;
 let BEAT=60/bpmFor(S.mode);
 let nextT=0,beat=0,chordIdx=0,prog=0,keyShift=0,curChord=null;
@@ -191,7 +194,7 @@ function initAudio(){
   master=ctx.createGain();master.gain.value=.9;
   const comp=ctx.createDynamicsCompressor();comp.threshold.value=-18;comp.ratio.value=3;
   master.connect(comp).connect(ctx.destination);
-  musicBus=ctx.createGain();musicBus.connect(master);
+  musicBus=ctx.createGain();toneF=ctx.createBiquadFilter();toneF.type="lowpass";toneF.frequency.value=18000;musicBus.connect(toneF).connect(master);
   rev=ctx.createConvolver();rev.buffer=impulse(4);
   const revG=ctx.createGain();revG.gain.value=.55;rev.connect(revG).connect(musicBus);
   padFilter=ctx.createBiquadFilter();padFilter.type="lowpass";padFilter.frequency.value=900;padFilter.Q.value=.4;
@@ -389,6 +392,7 @@ function bank(){
 function game(){
   const now=Date.now(),dt=lastTick?Math.min(2,(now-lastTick)/1000):0;lastTick=now;
   if(!S.running||!isFocus()||document.hidden||elapsed()>=TOTAL)return;
+  heat=Math.max(.15,heat-dt/480);if(toneF)toneF.frequency.setTargetAtTime(400+heat*heat*17600,ctx.currentTime,.5);
   comboSec+=dt;S.best=Math.max(S.best,comboSec);
   {const mins=Math.floor(comboSec/60);if(mins>Math.floor((comboSec-dt)/60)){coin(mins%13)}}
   {const fm=Math.floor((elapsed()%CYCLE)/60);if(fm>0&&fm%10===0&&fm!==lastVoiceMin){lastVoiceMin=fm;say(pick(LINES))}}
@@ -425,6 +429,26 @@ $("probStart").onclick=()=>{
   $("probHint").textContent="다음 문제를 고르세요.";probReset();
 };
 $("probGive").onclick=()=>{probReset();$("probHint").textContent="괜찮습니다. 자기 전에 이 문제를 한 번 더 떠올리세요.";toast("내일 다시 붙잡는다.")};
+/* ---------- 한 문제 끝: 누를 때마다 손맛 나는 소리, 안 누르면 음악이 먹먹해진다 ---------- */
+let heat=.6,chain=0,lastDone=0;
+function doneSound(c){
+  if(!ctx)return;const t=ctx.currentTime,i=Math.min(c-1,14),m=72+12*Math.floor(i/5)+PENTA[i%5];
+  kick(t);bell(m,t,.14);bell(m+7,t+.08,.09);
+  if(c%10===0)jackpot();
+  else if(c%5===0){chime(true);for(let k=0;k<8;k++)coin(k,t+.1+k*.05)}
+}
+function problemDone(){
+  if(!S.running){toast("먼저 시작을 누르세요.");return}
+  const now=Date.now();chain=now-lastDone<6*60000?chain+1:1;lastDone=now;
+  heat=Math.min(1,heat+.2);
+  const g=Math.round(5*chain*mult());S.pending+=g;doneSound(chain);renderGame();save();
+  $("doneBtn").textContent="한 문제 끝! · 연속 "+chain;
+  toast("+"+g+" XP · 연속 "+chain+(chain%10===0?" 잭팟!":chain%5===0?" 팡파레!":""));
+}
+$("doneBtn").onclick=problemDone;
+addEventListener("keydown",e=>{
+  if(e.code==="Space"&&!/INPUT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)){e.preventDefault();problemDone()}
+});
 function renderGame(){
   const lv=Math.floor(Math.sqrt(S.xp/50))+1,cur=50*(lv-1)**2,nxt=50*lv**2;
   $("lv").textContent="Lv."+lv;$("xp").textContent=S.xp;
