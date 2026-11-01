@@ -1,4 +1,4 @@
-﻿<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
 <title>8시간 몰입실</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50,6 +50,17 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .tog input{width:18px;height:18px;accent-color:var(--accent)}
 .tog small{color:var(--mute)}
 .primary.holding{background:var(--warn);transition:background 3s linear}
+.lvrow{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.lv{font-family:var(--mono);font-size:1.5rem;font-weight:500;color:var(--accent)}
+.xpbar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.xpbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s}
+.stats.three{grid-template-columns:repeat(3,1fr)}
+.tiers{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.tiers span{font-size:.72rem;text-align:center;padding:7px 2px;border:1px solid var(--line);border-radius:6px;color:var(--mute);transition:all .4s}
+.tiers span.on{border-color:var(--accent);color:var(--fg);background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.check{position:fixed;inset:0;z-index:20;background:color-mix(in srgb,var(--bg) 94%,transparent);display:flex;align-items:center;justify-content:center;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.check>div{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.check .primary{font-size:1.25rem;padding:22px 34px}
 .seg button{background:transparent;border:1px solid var(--line);border-radius:8px;padding:9px 4px;font-size:.88rem;color:var(--mute)}
 .seg button[aria-pressed="true"]{border-color:var(--accent);color:var(--fg);background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .row{display:grid;grid-template-columns:5.5em 1fr 2.5em;align-items:center;gap:10px;font-size:.86rem}
@@ -91,6 +102,18 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
   <div class="toast" id="toast" role="status"></div>
 
+  <div class="panel">
+    <div class="lvrow"><span class="lv" id="lv">Lv.1</span><span class="sub"><b id="xp">0</b> XP 적립</span></div>
+    <div class="xpbar"><i id="xpbar"></i></div>
+    <div class="stats three">
+      <div class="stat"><b id="combo">0:00</b><span>무이탈 콤보</span></div>
+      <div class="stat"><b id="pend">0</b><span>이번 교시 XP (지키는 중)</span></div>
+      <div class="stat"><b id="mult">×1.0</b><span>XP 배수</span></div>
+    </div>
+    <div class="tiers" id="tiers"><span>킥</span><span>하이햇</span><span>베이스</span><span>아르페지오</span><span>리드</span></div>
+    <p class="note" id="nextTier"></p>
+  </div>
+
   <div class="go">
     <button class="primary" id="play">시작</button>
     <button class="ghost" id="fs">전체화면</button>
@@ -107,6 +130,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <label class="row" for="vMusic">음악 <input id="vMusic" type="range" min="0" max="100" value="70"><output id="oMusic">70</output></label>
     <label class="row" for="vNoise">빗소리 <input id="vNoise" type="range" min="0" max="100" value="30"><output id="oNoise">30</output></label>
     <label class="tog" for="tPenalty"><input id="tPenalty" type="checkbox"> 이탈 벌칙 <small>집중 중에 나가면 경보음 + 5분 되감기</small></label>
+    <label class="tog" for="tCheck"><input id="tCheck" type="checkbox"> 생존 확인 <small>8~15분마다 30초 안에 눌러야 함</small></label>
     <label class="tog" for="tBin"><input id="tBin" type="checkbox"> 40Hz 바이노럴 <small>이어폰 전용, 낮게 웅웅거리는 소리</small></label>
   </div>
 
@@ -116,7 +140,15 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       <div class="stat"><b id="urges">0</b><span>인스타 참은 횟수</span></div>
     </div>
     <button class="urge" id="urge">인스타 켜고 싶다 → 누르고 참기</button>
-    <p class="note">곡은 정해진 녹음이 아니라 매번 새로 만들어집니다. 30분마다 조가 바뀌어서 8시간 들어도 같은 구간이 반복되지 않아요. 집중 시간에 다른 앱으로 나가면 이탈로 기록되고, 벌칙을 켜 두면 돌아올 때까지 경보음이 울리고 타이머가 5분 뒤로 돌아갑니다. 드라이브 모드는 50분이 흐를수록 점점 세집니다.</p>
+    <p class="note">곡은 정해진 녹음이 아니라 매번 새로 만들어집니다. 30분마다 조가 바뀌어서 8시간 들어도 같은 구간이 반복되지 않아요. 집중 시간에 다른 앱으로 나가면 이탈로 기록되고, 벌칙을 켜 두면 돌아올 때까지 경보음이 울리고 타이머가 5분 뒤로 돌아갑니다. 드라이브 모드는 처음엔 킥 하나뿐이고, 안 나가고 버틴 시간만큼 하이햇·베이스·아르페지오·리드가 차례로 열립니다. 이번 교시 XP는 50분을 채워야 적립되고, 나가면 절반이 날아갑니다.</p>
+  </div>
+</div>
+
+<div class="check" id="check" hidden>
+  <div>
+    <p class="phase">생존 확인</p>
+    <p id="checkLeft">30초 안에 누르세요</p>
+    <button class="primary" id="checkBtn">공부 중 맞음</button>
   </div>
 </div>
 
@@ -124,7 +156,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 (()=>{
 const FOCUS=50*60, CYCLE=60*60, TOTAL=8*CYCLE;
 const $=id=>document.getElementById(id);
-const S={acc:0,runStart:0,running:false,leaves:0,urges:0,mode:"drive",vMusic:70,vNoise:30,penalty:true,bin:false};
+const S={acc:0,runStart:0,running:false,leaves:0,urges:0,mode:"drive",vMusic:70,vNoise:30,penalty:true,bin:false,check:true,xp:0,pending:0,best:0};
 try{Object.assign(S,JSON.parse(localStorage.getItem("focus8h")||"{}"));S.running=false;S.runStart=0}catch(e){}
 const save=()=>{try{localStorage.setItem("focus8h",JSON.stringify({...S,acc:elapsed(),running:false}))}catch(e){}};
 const elapsed=()=>Math.min(TOTAL,S.acc+(S.running?(Date.now()-S.runStart)/1000:0));
@@ -231,13 +263,20 @@ function pluck(m,t,cut,vel,dec){
 // 드라이브: 124BPM 4비트 킥 + 16분 아르페지오. 50분 집중 구간이 지날수록 필터가 열리고 음이 촘촘해진다
 function driveStep(t,b){
   if(!curChord)return;
+  // 콤보가 쌓인 만큼만 악기가 열린다: 0 킥 → 1 하이햇·스네어 → 2 베이스 → 3 아르페지오 → 4 리드
   const pos=(elapsed()%CYCLE)/FOCUS,energy=Math.min(1,.4+pos*.7);
   kick(t);
-  if(b%4===1||b%4===3)noiseHit(t,"snare");
-  noiseHit(t+BEAT/2,"hat");if(energy>.7)noiseHit(t+BEAT*.75,"hat");
-  pluck(curChord[0]-12,t+BEAT/2,500,.09,.25);
+  if(tier>=1){
+    if(b%4===1||b%4===3)noiseHit(t,"snare");
+    noiseHit(t+BEAT/2,"hat");if(energy>.7)noiseHit(t+BEAT*.75,"hat");
+  }
+  if(tier>=2)pluck(curChord[0]-12,t+BEAT/2,500,.09,.25);
   const n=curChord.length;
-  for(let k=0;k<4;k++)if(k%2===0||Math.random()<energy)pluck(curChord[(b*4+k)%n]+12,t+k*BEAT/4,700+energy*2600,.035,.18);
+  if(tier>=3)for(let k=0;k<4;k++)if(k%2===0||Math.random()<energy)pluck(curChord[(b*4+k)%n]+12,t+k*BEAT/4,700+energy*2600,.035,.18);
+  if(tier>=4){
+    if(b%2===0&&Math.random()<.7)pluck(72+PENTA[Math.floor(Math.random()*5)]+(curChord[0]%12),t,3200,.04,.5);
+    if(b%16===15)for(let k=0;k<4;k++)noiseHit(t+k*BEAT/4,"snare");
+  }
 }
 let bin=null,alarm=null;
 function setBinaural(on){
@@ -258,6 +297,85 @@ function alarmOn(){
   alarm={o,gate,out};
 }
 function alarmOff(){if(!alarm)return;alarm.o.stop();alarm.gate.stop();alarm.out.disconnect();alarm=null;applyVol()}
+function noiseSrc(sec){
+  const n=ctx.sampleRate*sec,b=ctx.createBuffer(1,n,ctx.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+  const s=ctx.createBufferSource();s.buffer=b;return s;
+}
+function riser(){
+  if(!ctx)return;const t=ctx.currentTime,d=2.2,s=noiseSrc(d),f=ctx.createBiquadFilter(),g=ctx.createGain();
+  f.type="bandpass";f.Q.value=3;f.frequency.setValueAtTime(300,t);f.frequency.exponentialRampToValueAtTime(7000,t+d);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.14,t+d-.05);g.gain.linearRampToValueAtTime(0,t+d);
+  s.connect(f).connect(g).connect(master);s.start(t);s.stop(t+d);
+  setTimeout(()=>{kick(ctx.currentTime);chime(true)},d*1000);
+}
+function sparkle(){
+  if(!ctx)return;const t=ctx.currentTime;
+  [84,88,91,96].forEach((m,i)=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=hz(m);
+    g.gain.setValueAtTime(0,t+i*.07);g.gain.linearRampToValueAtTime(.07,t+i*.07+.005);g.gain.exponentialRampToValueAtTime(.0001,t+i*.07+.6);
+    o.connect(g);g.connect(master);g.connect(rev);o.start(t+i*.07);o.stop(t+i*.07+.7);
+  });
+}
+function downer(){
+  if(!ctx)return;const t=ctx.currentTime,o=ctx.createOscillator(),g=ctx.createGain();
+  o.type="sawtooth";o.frequency.setValueAtTime(420,t);o.frequency.exponentialRampToValueAtTime(60,t+.9);
+  g.gain.setValueAtTime(.08,t);g.gain.exponentialRampToValueAtTime(.0001,t+1);
+  o.connect(g).connect(master);o.start(t);o.stop(t+1.05);
+}
+
+/* ---------- 보상 시스템: 버틸수록 음악이 완성되고, 나가면 날아간다 ---------- */
+const TIERS=[0,5,12,20,30],TIER_NAMES=["킥","하이햇","베이스","아르페지오","리드"];
+let tier=0,comboSec=0,lastTick=0,nextCheck=0,checkDeadline=0,checkFailed=false;
+const mult=()=>1+tier*.5;
+function setTier(){
+  const m=comboSec/60;let t=0;TIERS.forEach((th,i)=>{if(m>=th)t=i});
+  if(t>tier){tier=t;riser();S.pending+=20*t;toast("해금: "+TIER_NAMES[t]+" · XP 배수 ×"+mult().toFixed(1))}
+  else tier=t;
+}
+function comboBreak(){
+  if(comboSec>60)downer();
+  comboSec=0;tier=0;renderGame();
+}
+function bank(){
+  const g=Math.round(S.pending);if(g<=0)return;
+  S.xp+=g;S.pending=0;sparkle();save();renderGame();return g;
+}
+function openCheck(){nextCheck=0;checkFailed=false;checkDeadline=Date.now()+30000;$("check").hidden=false;chime(false)}
+function game(){
+  const now=Date.now(),dt=lastTick?Math.min(2,(now-lastTick)/1000):0;lastTick=now;
+  if(checkDeadline){
+    const left=checkDeadline-now;
+    if(left>0)$("checkLeft").textContent=Math.ceil(left/1000)+"초 안에 누르세요";
+    else{
+      $("checkLeft").textContent="늦었어요. 콤보 끊김. 눌러야 경보가 멈춥니다.";
+      if(!checkFailed){checkFailed=true;comboBreak()}
+      if(!alarm&&!document.hidden)alarmOn();
+    }
+    return;
+  }
+  if(!S.running||!isFocus()||document.hidden||elapsed()>=TOTAL)return;
+  comboSec+=dt;S.best=Math.max(S.best,comboSec);
+  S.pending+=dt/60*mult();
+  if(Math.random()<dt/360){const g=Math.round((10+Math.random()*70)*mult());S.pending+=g;sparkle();toast("보너스 상자 +"+g+" XP")}
+  if(S.check){if(!nextCheck)nextCheck=now+(8+Math.random()*7)*60000;if(now>nextCheck)openCheck()}
+  setTier();renderGame();
+}
+function renderGame(){
+  const lv=Math.floor(Math.sqrt(S.xp/50))+1,cur=50*(lv-1)**2,nxt=50*lv**2;
+  $("lv").textContent="Lv."+lv;$("xp").textContent=S.xp;
+  $("xpbar").style.width=((S.xp-cur)/(nxt-cur)*100)+"%";
+  $("pend").textContent=Math.round(S.pending);$("mult").textContent="×"+mult().toFixed(1);
+  $("combo").textContent=fmt(comboSec);
+  [...$("tiers").children].forEach((c,i)=>c.classList.toggle("on",i<=tier));
+  $("nextTier").textContent=tier<4?TIER_NAMES[tier+1]+" 해금까지 "+fmt(TIERS[tier+1]*60-comboSec)+" 버티기. 나가면 킥만 남고 처음부터.":"전 악기 해금. 지금이 이 곡의 완성본입니다. 나가면 다 날아가요.";
+}
+$("checkBtn").onclick=()=>{
+  $("check").hidden=true;alarmOff();
+  if(!checkFailed){const g=Math.round(15*mult());S.pending+=g;sparkle();toast("확인 완료 +"+g+" XP")}
+  else toast("다음엔 30초 안에.");
+  checkDeadline=0;checkFailed=false;nextCheck=0;
+};
 function step(t,b){
   const lofi=S.mode==="lofi";
   if(b%16===0){
@@ -270,7 +388,7 @@ function step(t,b){
   }
   if(S.mode==="noise")return;
   if(S.mode==="drive"){driveStep(t,b);return}
-  if(lofi){
+  if(lofi&&tier>=1){
     const p=b%4;
     if(p===0||(p===2&&Math.random()<.35))kick(t);
     if(p===2&&Math.random()<.2)kick(t+BEAT*.5);
@@ -278,7 +396,7 @@ function step(t,b){
     noiseHit(t,"hat");noiseHit(t+BEAT*.55,"hat");
   }
   // 드문드문 건반: 집중을 깨지 않게 확률 낮게
-  const dens=lofi?.32:.2;
+  const dens=(lofi?.32:.2)*(.4+tier*.15);
   [0,.5].forEach(off=>{
     if(Math.random()<dens){
       const root=60+(curChord?curChord[0]%12:0);
@@ -306,6 +424,7 @@ const fmt=s=>{s=Math.max(0,Math.ceil(s));const h=Math.floor(s/3600),m=Math.floor
 let lastFocus=null,wake=null;
 function toast(msg){$("toast").textContent=msg}
 function render(){
+  game();
   const e=elapsed(),cyc=Math.min(7,Math.floor(e/CYCLE)),within=e-cyc*CYCLE,focus=within<FOCUS;
   const done=e>=TOTAL;
   const segLen=focus?FOCUS:CYCLE-FOCUS,segPos=focus?within:within-FOCUS;
@@ -321,10 +440,11 @@ function render(){
   document.title=S.running?(focus?"집중 ":"휴식 ")+fmt(segLen-segPos):"8시간 몰입실";
   if(S.running&&lastFocus!==null&&lastFocus!==focus){
     chime(!focus);applyVol();
-    toast(focus?"휴식 끝. 다시 집중.":"10분 휴식. 폰 말고 스트레칭.");
+    if(!focus){const g=bank();toast("교시 완료! "+(g?"+"+g+" XP 적립. ":"")+"10분 휴식, 폰 말고 스트레칭.")}
+    else toast("휴식 끝. 콤보 이어서 갑니다.");
   }
   lastFocus=focus;
-  if(done&&S.running){pause();toast("8시간 끝났습니다. 진짜 했네요.");chime(true)}
+  if(done&&S.running){const g=bank();pause();toast("8시간 끝났습니다. 진짜 했네요."+(g?" +"+g+" XP":""));chime(true)}
 }
 async function lock(){try{wake=await navigator.wakeLock?.request("screen")}catch(e){wake=null}}
 function play(){
@@ -333,7 +453,7 @@ function play(){
   document.body.classList.add("playing");$("play").textContent="일시정지";toast("");save();
 }
 function pause(){
-  S.acc=elapsed();S.running=false;audioStop();
+  S.acc=elapsed();S.running=false;comboBreak();audioStop();
   document.body.classList.remove("playing");$("play").textContent="이어서";
   try{wake?.release()}catch(e){}save();
 }
@@ -353,7 +473,7 @@ $("fs").onclick=()=>{
   const d=document,p=d.fullscreenElement?d.exitFullscreen():d.documentElement.requestFullscreen?.();
   Promise.resolve(p).catch(()=>toast("이 화면에선 전체화면이 안 돼요."));
 };
-[["tPenalty","penalty"],["tBin","bin"]].forEach(([id,k])=>{
+[["tPenalty","penalty"],["tBin","bin"],["tCheck","check"]].forEach(([id,k])=>{
   $(id).checked=S[k];
   $(id).onchange=e=>{S[k]=e.target.checked;if(k==="bin")setBinaural(S.bin&&S.running);save()};
 });
@@ -362,20 +482,21 @@ $("reset").onclick=e=>{
   const b=e.currentTarget;
   if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="한 번 더";armT=setTimeout(()=>{b.classList.remove("armed");b.textContent="초기화"},2500);return}
   clearTimeout(armT);b.classList.remove("armed");b.textContent="초기화";
-  if(S.running)pause();S.acc=0;S.leaves=0;S.urges=0;lastFocus=null;$("play").textContent="시작";stats();render();save();toast("처음부터.");
+  if(S.running)pause();S.acc=0;S.leaves=0;S.urges=0;S.pending=0;comboBreak();lastFocus=null;$("play").textContent="시작";stats();render();save();toast("처음부터.");
 };
 function stats(){$("leaves").textContent=S.leaves;$("urges").textContent=S.urges}
-$("urge").onclick=()=>{S.urges++;stats();save();const m=["잘 참았다. 숨 한 번 쉬고 다음 줄.","인스타는 휴식 시간에도 안 봐도 됩니다.","그 피드 내일도 똑같아요.","지금 이 문제 하나만 끝내고."];toast(m[S.urges%m.length])};
+$("urge").onclick=()=>{S.urges++;S.pending+=5*mult();sparkle();renderGame();stats();save();const m=["잘 참았다. 숨 한 번 쉬고 다음 줄.","인스타는 휴식 시간에도 안 봐도 됩니다.","그 피드 내일도 똑같아요.","지금 이 문제 하나만 끝내고."];toast(m[S.urges%m.length])};
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden){
     if(S.running&&isFocus()){
       S.leaves++;stats();
       if(S.penalty){const e=elapsed();S.acc=Math.max(Math.floor(e/CYCLE)*CYCLE,e-300);S.runStart=Date.now();alarmOn()}
+      S.pending=Math.floor(S.pending/2);comboBreak();
       save();
     }
   }else{
     alarmOff();
-    if(S.running){lock();if(isFocus())toast("어디 갔다 왔어요? 이탈 "+S.leaves+"회째."+(S.penalty?" 벌칙으로 5분 되감았어요.":""))}
+    if(S.running){lock();if(isFocus())toast("어디 갔다 왔어요? 이탈 "+S.leaves+"회째."+(S.penalty?" 벌칙으로 5분 되감았어요.":"")+" 이번 교시 XP 절반 몰수, 악기도 킥만 남았어요.")}
   }
 });
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
@@ -387,7 +508,7 @@ document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
 });
 document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.mode===S.mode));
 if(S.acc>0)$("play").textContent="이어서";
-stats();render();setInterval(render,250);
+stats();renderGame();render();setInterval(render,250);
 window.addEventListener("pagehide",save);
 })();
 </script>
