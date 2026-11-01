@@ -46,6 +46,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .ghost.armed{border-color:var(--warn);color:var(--warn)}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px}
 .seg{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.seg button:first-child{grid-column:1/-1}
 .tog{display:flex;align-items:center;gap:10px;font-size:.86rem;flex-wrap:wrap}
 .tog input{width:18px;height:18px;accent-color:var(--accent)}
 .tog small{color:var(--mute)}
@@ -79,7 +80,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <div class="wrap">
   <header>
     <h1>8시간 몰입실</h1>
-    <span class="sub">50분 집중 · 10분 휴식 × 8 · v4</span>
+    <span class="sub">50분 집중 · 10분 휴식 × 8 · v5</span>
   </header>
 
   <div class="ring">
@@ -122,7 +123,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
   <div class="panel">
     <div class="seg" role="group" aria-label="음악 종류">
-      <button id="m-drive" data-mode="drive" aria-pressed="true">드라이브 (강력)</button>
+      <button id="m-pop" data-mode="pop" aria-pressed="true">중독 팝 (귀에 꽂히는 후렴)</button>
+      <button id="m-drive" data-mode="drive" aria-pressed="false">드라이브</button>
       <button id="m-ambient" data-mode="ambient" aria-pressed="false">앰비언트</button>
       <button id="m-lofi" data-mode="lofi" aria-pressed="false">로파이 비트</button>
       <button id="m-noise" data-mode="noise" aria-pressed="false">노이즈만</button>
@@ -139,7 +141,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       <div class="stat"><b id="urges">0</b><span>인스타 참은 횟수</span></div>
     </div>
     <button class="urge" id="urge">인스타 켜고 싶다 → 누르고 참기</button>
-    <p class="note">곡은 정해진 녹음이 아니라 매번 새로 만들어집니다. 30분마다 조가 바뀌어서 8시간 들어도 같은 구간이 반복되지 않아요. 집중 시간에 다른 앱으로 나가면 이탈로 기록되고, 벌칙을 켜 두면 돌아올 때까지 경보음이 울리고 타이머가 5분 뒤로 돌아갑니다. 드라이브 모드는 처음엔 킥 하나뿐이고, 안 나가고 버틴 시간만큼 하이햇·베이스·아르페지오·리드가 차례로 열립니다. 이번 교시 XP는 50분을 채워야 적립되고, 나가면 절반이 날아갑니다.</p>
+    <p class="note">곡은 정해진 녹음이 아니라 매번 새로 만들어집니다. 30분마다 조가 바뀌어서 8시간 들어도 같은 구간이 반복되지 않아요. 집중 시간에 다른 앱으로 나가면 이탈로 기록되고, 벌칙을 켜 두면 돌아올 때까지 경보음이 울리고 타이머가 5분 뒤로 돌아갑니다. 중독 팝과 드라이브는 처음엔 소리가 몇 개뿐이고, 안 나가고 버틴 시간만큼 악기가 차례로 열립니다. 1분 버틸 때마다 동전 소리가 한 칸씩 높아지고, 무작위로 잭팟이 터집니다. 이번 교시 XP는 50분을 채워야 적립되고, 나가면 절반이 날아갑니다.</p>
   </div>
 </div>
 
@@ -150,12 +152,13 @@ const FOCUS=50*60, CYCLE=60*60, TOTAL=8*CYCLE;
 const $=id=>document.getElementById(id);
 const S={acc:0,runStart:0,running:false,leaves:0,urges:0,mode:"drive",vMusic:70,vNoise:30,penalty:true,bin:false,check:true,xp:0,pending:0,best:0};
 try{Object.assign(S,JSON.parse(localStorage.getItem("focus8h")||"{}"));S.running=false;S.runStart=0}catch(e){}
+if(!S.v5){S.mode="pop";S.v5=1}
 const save=()=>{try{localStorage.setItem("focus8h",JSON.stringify({...S,acc:elapsed(),running:false}))}catch(e){}};
 const elapsed=()=>Math.min(TOTAL,S.acc+(S.running?(Date.now()-S.runStart)/1000:0));
 
 /* ---------- 오디오 엔진 ---------- */
 let ctx,master,musicBus,noiseGain,padFilter,rev,sched,lfo;
-const bpmFor=m=>m==="drive"?124:70;
+const bpmFor=m=>m==="pop"?132:m==="drive"?124:70;
 let BEAT=60/bpmFor(S.mode);
 let nextT=0,beat=0,chordIdx=0,prog=0,keyShift=0,curChord=null;
 const PROGS=[
@@ -299,7 +302,7 @@ function riser(){
   f.type="bandpass";f.Q.value=3;f.frequency.setValueAtTime(300,t);f.frequency.exponentialRampToValueAtTime(7000,t+d);
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.14,t+d-.05);g.gain.linearRampToValueAtTime(0,t+d);
   s.connect(f).connect(g).connect(master);s.start(t);s.stop(t+d);
-  setTimeout(()=>{kick(ctx.currentTime);chime(true)},d*1000);
+  setTimeout(()=>{impact(ctx.currentTime);chime(true)},d*1000);
 }
 function sparkle(){
   if(!ctx)return;const t=ctx.currentTime;
@@ -318,11 +321,13 @@ function downer(){
 
 /* ---------- 보상 시스템: 버틸수록 음악이 완성되고, 나가면 날아간다 ---------- */
 const TIERS=[0,5,12,20,30],TIER_NAMES=["킥","하이햇","베이스","아르페지오","리드"];
+const TIER_SETS={pop:["멜로디","박수","통통 베이스","코드·빌드업","풀 편곡"],drive:TIER_NAMES};
+const tierNames=()=>TIER_SETS[S.mode]||TIER_NAMES;
 let tier=0,comboSec=0,lastTick=0;
 const mult=()=>1+tier*.5;
 function setTier(){
   const m=comboSec/60;let t=0;TIERS.forEach((th,i)=>{if(m>=th)t=i});
-  if(t>tier){tier=t;riser();S.pending+=20*t;toast("해금: "+TIER_NAMES[t]+" · XP 배수 ×"+mult().toFixed(1))}
+  if(t>tier){tier=t;riser();S.pending+=20*t;toast("해금: "+tierNames()[t]+" · XP 배수 ×"+mult().toFixed(1))}
   else tier=t;
 }
 function comboBreak(){
@@ -331,14 +336,15 @@ function comboBreak(){
 }
 function bank(){
   const g=Math.round(S.pending);if(g<=0)return;
-  S.xp+=g;S.pending=0;sparkle();save();renderGame();return g;
+  S.xp+=g;S.pending=0;jackpot();save();renderGame();return g;
 }
 function game(){
   const now=Date.now(),dt=lastTick?Math.min(2,(now-lastTick)/1000):0;lastTick=now;
   if(!S.running||!isFocus()||document.hidden||elapsed()>=TOTAL)return;
   comboSec+=dt;S.best=Math.max(S.best,comboSec);
+  {const mins=Math.floor(comboSec/60);if(mins>Math.floor((comboSec-dt)/60))coin(mins%13)}
   S.pending+=dt/60*mult();
-  if(Math.random()<dt/360){const g=Math.round((10+Math.random()*70)*mult());S.pending+=g;sparkle();toast("보너스 상자 +"+g+" XP")}
+  if(Math.random()<dt/360){const jp=Math.random()<.12,g=Math.round((10+Math.random()*70)*mult()*(jp?5:1));S.pending+=g;if(jp)jackpot();else sparkle();toast((jp?"잭팟! ":"보너스 상자 ")+"+"+g+" XP")}
   setTier();renderGame();
 }
 function renderGame(){
@@ -347,10 +353,96 @@ function renderGame(){
   $("xpbar").style.width=((S.xp-cur)/(nxt-cur)*100)+"%";
   $("pend").textContent=Math.round(S.pending);$("mult").textContent="×"+mult().toFixed(1);
   $("combo").textContent=fmt(comboSec);
-  [...$("tiers").children].forEach((c,i)=>c.classList.toggle("on",i<=tier));
-  $("nextTier").textContent=tier<4?TIER_NAMES[tier+1]+" 해금까지 "+fmt(TIERS[tier+1]*60-comboSec)+" 버티기. 나가면 킥만 남고 처음부터.":"전 악기 해금. 지금이 이 곡의 완성본입니다. 나가면 다 날아가요.";
+  const tn=tierNames();[...$("tiers").children].forEach((c,i)=>{c.textContent=tn[i];c.classList.toggle("on",i<=tier)});
+  $("nextTier").textContent=tier<4?tn[tier+1]+" 해금까지 "+fmt(TIERS[tier+1]*60-comboSec)+" 버티기. 나가면 첫 소리만 남고 처음부터.":"전 악기 해금. 지금이 이 곡의 완성본입니다. 나가면 다 날아가요.";
+}
+/* ---------- 중독 팝: 직접 쓴 후렴을 IV-V-iii-vi 진행 위에 돌리고, 한 바퀴 돌 때마다 조금씩 바꾼다 ---------- */
+const CH={F:{r:41,v:[57,60,64]},G:{r:43,v:[55,59,62,65]},Em:{r:40,v:[55,59,64]},Am:{r:45,v:[57,60,64]},Dm:{r:38,v:[57,62,65]},C:{r:36,v:[55,60,64]}};
+const HA=[[0,76,1],[1,79,1],[2,81,2],[4,79,1],[5,76,1],[6,74,2],[8,76,1],[9,79,1],[10,81,1],[11,84,2],[13,83,1],[14,79,2]];
+const HA2=[[0,76,1],[1,79,1],[2,81,2],[4,79,1],[5,76,1],[6,74,1],[7,72,1],[8,74,2],[10,76,2]];
+const HA3=[[0,76,1],[1,79,1],[2,81,2],[4,79,1],[5,81,1],[6,84,2],[8,83,2],[10,79,2],[12,81,4]];
+const HB=[[0,81,1],[1,81,1],[2,79,1],[3,77,1],[4,76,2],[6,74,2],[8,77,1],[9,77,1],[10,76,1],[11,74,1],[12,72,2],[14,74,2]];
+const HB2=[[0,76,1],[1,77,1],[2,79,2],[4,84,2],[6,83,1],[7,81,1],[8,79,4]];
+const HB3=[[0,72,1],[1,74,1],[2,76,1],[3,77,1],[4,79,1],[5,81,1],[6,83,1],[7,84,1],[8,86,3],[12,84,1],[13,86,1],[14,88,2]];
+const SONG=[{m:HA,c:["F","G"]},{m:HA2,c:["Em","Am"]},{m:HA,c:["F","G"]},{m:HA3,c:["Em","Am"]},{m:HB,c:["Dm","G"]},{m:HB2,c:["C","Am"]},{m:HB,c:["Dm","G"]},{m:HB3,c:["F","G"]}];
+const SC=[0,2,4,5,7,9,11];
+function dia(m,s){let o=Math.floor(m/12),i=SC.indexOf(m%12);if(i<0)return m;i+=s;o+=Math.floor(i/7);return o*12+SC[((i%7)+7)%7]}
+let popLoop=-1,popMel=SONG.map(x=>x.m);
+function mutate(mel){return mel.map((n,i)=>i<mel.length-1&&Math.random()<.15?[n[0],dia(n[1],Math.random()<.5?1:-1),n[2]]:n)}
+function bell(m,t,vel){
+  [[1,"triangle",1,.5],[4,"sine",.3,.12]].forEach(([mul,type,a,dec])=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=hz(m+keyShift)*mul;
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vel*a,t+.005);g.gain.exponentialRampToValueAtTime(.0001,t+dec);
+    o.connect(g);g.connect(musicBus);g.connect(rev);o.start(t);o.stop(t+dec+.05);
+  });
+}
+function lead(m,t,dur,type,vel){
+  const o=ctx.createOscillator(),f=ctx.createBiquadFilter(),g=ctx.createGain(),v=ctx.createOscillator(),vg=ctx.createGain();
+  o.type=type;o.frequency.value=hz(m+keyShift);
+  v.frequency.value=5.5;vg.gain.setValueAtTime(0,t);vg.gain.linearRampToValueAtTime(dur>.3?14:0,t+Math.min(dur,.4));v.connect(vg).connect(o.detune);
+  f.type="lowpass";f.frequency.value=3200;
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vel,t+.01);g.gain.setValueAtTime(vel*.8,t+dur*.8);g.gain.linearRampToValueAtTime(0,t+dur);
+  o.connect(f).connect(g);g.connect(musicBus);g.connect(rev);o.start(t);v.start(t);o.stop(t+dur+.05);v.stop(t+dur+.05);
+}
+function blip(t,up){
+  const o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";
+  o.frequency.setValueAtTime(up?900:700,t);o.frequency.exponentialRampToValueAtTime(up?2000:1500,t+.08);
+  g.gain.setValueAtTime(.07,t);g.gain.exponentialRampToValueAtTime(.0001,t+.14);
+  o.connect(g).connect(musicBus);o.start(t);o.stop(t+.16);
+}
+function riserAt(t,d,out){
+  const s=noiseSrc(d),f=ctx.createBiquadFilter(),g=ctx.createGain();
+  f.type="bandpass";f.Q.value=3;f.frequency.setValueAtTime(300,t);f.frequency.exponentialRampToValueAtTime(8000,t+d);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.13,t+d-.03);g.gain.linearRampToValueAtTime(0,t+d);
+  s.connect(f).connect(g).connect(out||musicBus);s.start(t);s.stop(t+d);
+}
+// 드롭 직전의 정적과 쾅: 긴장이 풀리는 순간이 제일 짜릿하다
+function impact(t){
+  const s=noiseSrc(2),f=ctx.createBiquadFilter(),g=ctx.createGain();
+  f.type="highpass";f.frequency.value=2500;g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.0001,t+1.8);
+  s.connect(f).connect(g);g.connect(master);g.connect(rev);s.start(t);s.stop(t+2);
+  const o=ctx.createOscillator(),og=ctx.createGain();o.frequency.setValueAtTime(70,t);o.frequency.exponentialRampToValueAtTime(32,t+1.2);
+  og.gain.setValueAtTime(.32,t);og.gain.exponentialRampToValueAtTime(.0001,t+1.3);o.connect(og).connect(master);o.start(t);o.stop(t+1.35);
+}
+function coin(st,t0){
+  if(!ctx)return;const t=t0||ctx.currentTime;
+  [[83,0,.07],[88,.07,.35]].forEach(([m,d,len])=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();o.type="square";o.frequency.value=hz(m+st);
+    g.gain.setValueAtTime(.035,t+d);g.gain.exponentialRampToValueAtTime(.0001,t+d+len);
+    o.connect(g).connect(master);o.start(t+d);o.stop(t+d+len+.02);
+  });
+}
+function jackpot(){
+  if(!ctx)return;const t=ctx.currentTime;
+  riserAt(t,2,master);
+  setTimeout(()=>{const t2=ctx.currentTime;impact(t2);for(let i=0;i<16;i++)coin(Math.floor(Math.random()*8),t2+i*.06);chime(true)},2000);
+}
+function popStep(t,b){
+  const E=BEAT/2,bar=Math.floor(b/4),si=Math.floor(bar/2)%SONG.length,bi=b%8,p=b%4,sec=SONG[si],ch=CH[sec.c[Math.floor(bi/4)]];
+  const loop=Math.floor(b/(SONG.length*8));
+  if(loop!==popLoop){popLoop=loop;popMel=loop===0?SONG.map(x=>x.m):SONG.map(x=>mutate(x.m))}
+  const build=tier>=2&&si===7;
+  if(tier>=2&&si===0&&bi===0&&b>0)impact(t);
+  if(!(build&&bi===7))if(tier>=1||p===0||p===2)kick(t);
+  if(tier>=1&&!build){if(p===1||p===3)noiseHit(t,"snare");noiseHit(t+E,"hat");if(tier>=3)noiseHit(t+E*1.5,"hat")}
+  if(build){
+    if(bi===0)riserAt(t,8*BEAT);
+    const n=bi<4?2:bi<7?4:0;for(let k=0;k<n;k++)noiseHit(t+k*BEAT/n,"snare");
+  }
+  if(tier>=2&&!(build&&bi===7)){pluck(ch.r,t,900,.1,.18);pluck(ch.r+12,t+E,900,.08,.15)}
+  if(tier>=3)ch.v.forEach(m=>pluck(m,t+E,2200,.02,.14));
+  const mel=popMel[si],types=["square","triangle","sawtooth"];
+  for(let k=0;k<2;k++){
+    const e=bi*2+k,tt=t+k*E;
+    mel.filter(n=>n[0]===e).forEach(n=>{
+      bell(n[1],tt,.11);
+      if(tier>=4){lead(n[1],tt,n[2]*E*.92,types[popLoop%3],.035);bell(dia(n[1],-2),tt,.05)}
+    });
+    if(tier>=3&&e===13&&!mel.some(n=>n[0]>=12)){blip(tt,false);blip(tt+E,true)}
+  }
 }
 function step(t,b){
+  if(S.mode==="pop"){popStep(t,b);return}
   const lofi=S.mode==="lofi";
   if(b%16===0){
     // 30분마다 조 바꾸기
