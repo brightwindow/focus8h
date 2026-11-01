@@ -80,7 +80,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <div class="wrap">
   <header>
     <h1>8시간 몰입실</h1>
-    <span class="sub">50분 집중 · 10분 휴식 × 8 · v6</span>
+    <span class="sub">50분 집중 · 10분 휴식 × 8 · v7</span>
   </header>
 
   <div class="ring">
@@ -133,6 +133,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <label class="row" for="vMusic">음악 <input id="vMusic" type="range" min="0" max="100" value="70"><output id="oMusic">70</output></label>
     <label class="row" for="vNoise">빗소리 <input id="vNoise" type="range" min="0" max="100" value="30"><output id="oNoise">30</output></label>
     <label class="tog" for="tPenalty"><input id="tPenalty" type="checkbox"> 이탈 벌칙 <small>집중 중에 나가면 경보음 + 5분 되감기</small></label>
+    <label class="tog" for="tVoice"><input id="tVoice" type="checkbox"> 자기암시 음성 <small>시작·10분마다·이탈 후·교시 끝에 1인칭 선언과 버린 시간 반성</small></label>
     <label class="tog" for="tBin"><input id="tBin" type="checkbox"> 40Hz 바이노럴 <small>이어폰 전용, 낮게 웅웅거리는 소리</small></label>
   </div>
 
@@ -152,7 +153,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 (()=>{
 const FOCUS=50*60, CYCLE=60*60, TOTAL=8*CYCLE;
 const $=id=>document.getElementById(id);
-const S={acc:0,runStart:0,running:false,leaves:0,urges:0,mode:"drive",vMusic:70,vNoise:30,penalty:true,bin:false,check:true,xp:0,pending:0,best:0};
+const S={acc:0,runStart:0,running:false,leaves:0,urges:0,mode:"drive",vMusic:70,vNoise:30,penalty:true,bin:false,voice:true,check:true,xp:0,pending:0,best:0};
 try{Object.assign(S,JSON.parse(localStorage.getItem("focus8h")||"{}"));S.running=false;S.runStart=0}catch(e){}
 if(!S.v5){S.mode="pop";S.v5=1}
 if(!S.v6){S.mode="myeonhak";S.v6=1}
@@ -201,7 +202,7 @@ function initAudio(){
 function applyVol(){
   if(!ctx)return;
   const rest=!isFocus()&&S.running;
-  const m=S.mode==="noise"?0:(S.vMusic/100)*.5*(rest?.45:1);
+  const m=S.mode==="noise"?0:(S.vMusic/100)*.5*(rest?.45:1)*(ducking?.35:1);
   musicBus.gain.setTargetAtTime(m,ctx.currentTime,.8);
   noiseGain.gain.setTargetAtTime((S.vNoise/100)*.35,ctx.currentTime,.5);
 }
@@ -322,6 +323,43 @@ function downer(){
   o.connect(g).connect(master);o.start(t);o.stop(t+1.05);
 }
 
+/* ---------- 자기암시 음성: 남의 말이 아니라 내 입으로 하는 1인칭 선언 ---------- */
+const OPEN=[
+  "지금부터 50분, 나는 내 시간의 주인이다.",
+  "결심은 쉽다. 나는 이 50분에 모든 것을 건다.",
+  "책 한 권, 문제 하나. 지금 이것만 본다.",
+  "오늘 이 시간은 다시 오지 않는다. 그래서 지금 앉는다."
+];
+const LINES=[
+  "모르는 줄이 하나라도 남아 있으면 넘어가지 않는다.",
+  "머리가 아니라 앉아 있는 시간이 나를 바꾼다.",
+  "다른 사람이 몇 권을 풀든 상관없다. 나는 이 한 권을 끝낸다.",
+  "읽고, 풀고, 묻고, 또 묻는다.",
+  "지금 이 1분도 무의식에 흘려보내지 않는다.",
+  "천천히 가는 것이 가장 빠른 길이다.",
+  "눈빛이 종이를 뚫을 때까지 읽는다.",
+  "이 문제가 풀릴 때까지 일어나지 않는다.",
+  "시간이 모든 것을 정한다. 나는 지금 시간을 쓰고 있다."
+];
+let ducking=false,koVoice=null,lastVoiceMin=-1,periodWaste=0;
+function pickVoice(){try{koVoice=speechSynthesis.getVoices().find(v=>/ko/i.test(v.lang))||null}catch(e){}}
+try{speechSynthesis.onvoiceschanged=pickVoice;pickVoice()}catch(e){}
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const spokenDur=sec=>sec<60?Math.round(sec)+"초":Math.round(sec/60)+"분";
+function say(text){
+  if(!S.voice||document.hidden||!("speechSynthesis" in window))return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);u.lang="ko-KR";if(koVoice)u.voice=koVoice;u.rate=.92;u.pitch=.85;
+    u.onstart=()=>{ducking=true;applyVol()};u.onend=u.onerror=()=>{ducking=false;applyVol()};
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function reflect(){
+  const w=Math.max(0,(S.wasted||0)-periodWaste);
+  return "50분 끝. 이번 교시에 버린 시간 "+spokenDur(w)+". "+(w<30?"모든 시간이 내 의식과 함께 있었다.":"다음 50분은 버린 시간 0을 만든다.");
+}
+
 /* ---------- 보상 시스템: 버틸수록 음악이 완성되고, 나가면 날아간다 ---------- */
 const TIERS=[0,5,12,20,30],TIER_NAMES=["킥","하이햇","베이스","아르페지오","리드"];
 const TIER_SETS={myeonhak:["청등과 시계","가야금","현","해금","불덩이"],pop:["멜로디","박수","통통 베이스","코드·빌드업","풀 편곡"],drive:TIER_NAMES};
@@ -346,6 +384,7 @@ function game(){
   if(!S.running||!isFocus()||document.hidden||elapsed()>=TOTAL)return;
   comboSec+=dt;S.best=Math.max(S.best,comboSec);
   {const mins=Math.floor(comboSec/60);if(mins>Math.floor((comboSec-dt)/60)){if(S.mode==="myeonhak")bellToll();else coin(mins%13)}}
+  {const fm=Math.floor((elapsed()%CYCLE)/60);if(fm>0&&fm%10===0&&fm!==lastVoiceMin){lastVoiceMin=fm;say(pick(LINES))}}
   S.pending+=dt/60*mult();
   if(Math.random()<dt/360){const jp=Math.random()<.12,g=Math.round((10+Math.random()*70)*mult()*(jp?5:1));S.pending+=g;if(jp)jackpot();else sparkle();toast((jp?"잭팟! ":"보너스 상자 ")+"+"+g+" XP")}
   setTier();renderGame();
@@ -594,8 +633,8 @@ function render(){
   document.title=S.running?(focus?"집중 ":"휴식 ")+fmt(segLen-segPos):"8시간 몰입실";
   if(S.running&&lastFocus!==null&&lastFocus!==focus){
     chime(!focus);applyVol();
-    if(!focus){const g=bank();toast("교시 완료! "+(g?"+"+g+" XP 적립. ":"")+"10분 휴식, 폰 말고 스트레칭.")}
-    else toast("휴식 끝. 콤보 이어서 갑니다.");
+    if(!focus){say(reflect());const g=bank();toast("교시 완료! "+(g?"+"+g+" XP 적립. ":"")+"10분 휴식, 폰 말고 스트레칭.")}
+    else{periodWaste=S.wasted||0;lastVoiceMin=-1;say(pick(OPEN));toast("휴식 끝. 콤보 이어서 갑니다.")}
   }
   lastFocus=focus;
   if(done&&S.running){const g=bank();pause();toast("8시간 끝났습니다. 진짜 했네요."+(g?" +"+g+" XP":""));chime(true)}
@@ -604,6 +643,7 @@ async function lock(){try{wake=await navigator.wakeLock?.request("screen")}catch
 function play(){
   if(elapsed()>=TOTAL)return;
   S.running=true;S.runStart=Date.now();audioStart();applyVol();lock();
+  periodWaste=S.wasted||0;setTimeout(()=>say(pick(OPEN)),600);
   document.body.classList.add("playing");$("play").textContent="일시정지";toast("");save();
 }
 function pause(){
@@ -627,7 +667,7 @@ $("fs").onclick=()=>{
   const d=document,p=d.fullscreenElement?d.exitFullscreen():d.documentElement.requestFullscreen?.();
   Promise.resolve(p).catch(()=>toast("이 화면에선 전체화면이 안 돼요."));
 };
-[["tPenalty","penalty"],["tBin","bin"]].forEach(([id,k])=>{
+[["tPenalty","penalty"],["tBin","bin"],["tVoice","voice"]].forEach(([id,k])=>{
   $(id).checked=S[k];
   $(id).onchange=e=>{S[k]=e.target.checked;if(k==="bin")setBinaural(S.bin&&S.running);save()};
 });
@@ -650,7 +690,7 @@ document.addEventListener("visibilitychange",()=>{
       save();
     }
   }else{
-    if(hiddenAt){S.wasted=(S.wasted||0)+(Date.now()-hiddenAt)/1000;hiddenAt=0;stats();save()}
+    if(hiddenAt){const away=(Date.now()-hiddenAt)/1000;S.wasted=(S.wasted||0)+away;hiddenAt=0;stats();save();if(S.running)setTimeout(()=>say("돌아왔다. 방금 "+spokenDur(away)+"을 버렸다. 지금부터 다시 내 시간이다."),400)}
     alarmOff();
     if(S.running){lock();if(isFocus())toast("어디 갔다 왔어요? 이탈 "+S.leaves+"회째."+(S.penalty?" 벌칙으로 5분 되감았어요.":"")+" 이번 교시 XP 절반 몰수, 악기도 킥만 남았어요.")}
   }
