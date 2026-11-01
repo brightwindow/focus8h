@@ -80,7 +80,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <div class="wrap">
   <header>
     <h1>8시간 몰입실</h1>
-    <span class="sub">50분 집중 · 10분 휴식 × 8 · v5</span>
+    <span class="sub">50분 집중 · 10분 휴식 × 8 · v6</span>
   </header>
 
   <div class="ring">
@@ -123,7 +123,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
   <div class="panel">
     <div class="seg" role="group" aria-label="음악 종류">
-      <button id="m-pop" data-mode="pop" aria-pressed="true">중독 팝 (귀에 꽂히는 후렴)</button>
+      <button id="m-myeonhak" data-mode="myeonhak" aria-pressed="true">면학 (안광이 지배를 철하는 밤)</button>
+      <button id="m-pop" data-mode="pop" aria-pressed="false">중독 팝</button>
       <button id="m-drive" data-mode="drive" aria-pressed="false">드라이브</button>
       <button id="m-ambient" data-mode="ambient" aria-pressed="false">앰비언트</button>
       <button id="m-lofi" data-mode="lofi" aria-pressed="false">로파이 비트</button>
@@ -136,12 +137,13 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   </div>
 
   <div class="panel">
-    <div class="stats">
+    <div class="stats three">
       <div class="stat bad"><b id="leaves">0</b><span>집중 중 탭 이탈</span></div>
+      <div class="stat bad"><b id="wasted">0:00</b><span>버린 시간</span></div>
       <div class="stat"><b id="urges">0</b><span>인스타 참은 횟수</span></div>
     </div>
     <button class="urge" id="urge">인스타 켜고 싶다 → 누르고 참기</button>
-    <p class="note">곡은 정해진 녹음이 아니라 매번 새로 만들어집니다. 30분마다 조가 바뀌어서 8시간 들어도 같은 구간이 반복되지 않아요. 집중 시간에 다른 앱으로 나가면 이탈로 기록되고, 벌칙을 켜 두면 돌아올 때까지 경보음이 울리고 타이머가 5분 뒤로 돌아갑니다. 중독 팝과 드라이브는 처음엔 소리가 몇 개뿐이고, 안 나가고 버틴 시간만큼 악기가 차례로 열립니다. 1분 버틸 때마다 동전 소리가 한 칸씩 높아지고, 무작위로 잭팟이 터집니다. 이번 교시 XP는 50분을 채워야 적립되고, 나가면 절반이 날아갑니다.</p>
+    <p class="note">곡은 정해진 녹음이 아니라 매번 새로 만들어집니다. 30분마다 조가 바뀌어서 8시간 들어도 같은 구간이 반복되지 않아요. 집중 시간에 다른 앱으로 나가면 이탈로 기록되고, 벌칙을 켜 두면 돌아올 때까지 경보음이 울리고 타이머가 5분 뒤로 돌아갑니다. 면학·중독 팝·드라이브는 처음엔 소리가 몇 개뿐이고, 안 나가고 버틴 시간만큼 악기가 차례로 열립니다. 1분 버틸 때마다 동전 소리가 한 칸씩 높아지고, 무작위로 잭팟이 터집니다. 이번 교시 XP는 50분을 채워야 적립되고, 나가면 절반이 날아갑니다.</p>
   </div>
 </div>
 
@@ -153,12 +155,13 @@ const $=id=>document.getElementById(id);
 const S={acc:0,runStart:0,running:false,leaves:0,urges:0,mode:"drive",vMusic:70,vNoise:30,penalty:true,bin:false,check:true,xp:0,pending:0,best:0};
 try{Object.assign(S,JSON.parse(localStorage.getItem("focus8h")||"{}"));S.running=false;S.runStart=0}catch(e){}
 if(!S.v5){S.mode="pop";S.v5=1}
+if(!S.v6){S.mode="myeonhak";S.v6=1}
 const save=()=>{try{localStorage.setItem("focus8h",JSON.stringify({...S,acc:elapsed(),running:false}))}catch(e){}};
 const elapsed=()=>Math.min(TOTAL,S.acc+(S.running?(Date.now()-S.runStart)/1000:0));
 
 /* ---------- 오디오 엔진 ---------- */
 let ctx,master,musicBus,noiseGain,padFilter,rev,sched,lfo;
-const bpmFor=m=>m==="pop"?132:m==="drive"?124:70;
+const bpmFor=m=>m==="myeonhak"?76:m==="pop"?132:m==="drive"?124:70;
 let BEAT=60/bpmFor(S.mode);
 let nextT=0,beat=0,chordIdx=0,prog=0,keyShift=0,curChord=null;
 const PROGS=[
@@ -298,7 +301,7 @@ function noiseSrc(sec){
   const s=ctx.createBufferSource();s.buffer=b;return s;
 }
 function riser(){
-  if(!ctx)return;const t=ctx.currentTime,d=2.2,s=noiseSrc(d),f=ctx.createBiquadFilter(),g=ctx.createGain();
+  if(!ctx)return;if(S.mode==="myeonhak"){gongBig();return}const t=ctx.currentTime,d=2.2,s=noiseSrc(d),f=ctx.createBiquadFilter(),g=ctx.createGain();
   f.type="bandpass";f.Q.value=3;f.frequency.setValueAtTime(300,t);f.frequency.exponentialRampToValueAtTime(7000,t+d);
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.14,t+d-.05);g.gain.linearRampToValueAtTime(0,t+d);
   s.connect(f).connect(g).connect(master);s.start(t);s.stop(t+d);
@@ -321,7 +324,7 @@ function downer(){
 
 /* ---------- 보상 시스템: 버틸수록 음악이 완성되고, 나가면 날아간다 ---------- */
 const TIERS=[0,5,12,20,30],TIER_NAMES=["킥","하이햇","베이스","아르페지오","리드"];
-const TIER_SETS={pop:["멜로디","박수","통통 베이스","코드·빌드업","풀 편곡"],drive:TIER_NAMES};
+const TIER_SETS={myeonhak:["청등과 시계","가야금","현","해금","불덩이"],pop:["멜로디","박수","통통 베이스","코드·빌드업","풀 편곡"],drive:TIER_NAMES};
 const tierNames=()=>TIER_SETS[S.mode]||TIER_NAMES;
 let tier=0,comboSec=0,lastTick=0;
 const mult=()=>1+tier*.5;
@@ -342,7 +345,7 @@ function game(){
   const now=Date.now(),dt=lastTick?Math.min(2,(now-lastTick)/1000):0;lastTick=now;
   if(!S.running||!isFocus()||document.hidden||elapsed()>=TOTAL)return;
   comboSec+=dt;S.best=Math.max(S.best,comboSec);
-  {const mins=Math.floor(comboSec/60);if(mins>Math.floor((comboSec-dt)/60))coin(mins%13)}
+  {const mins=Math.floor(comboSec/60);if(mins>Math.floor((comboSec-dt)/60)){if(S.mode==="myeonhak")bellToll();else coin(mins%13)}}
   S.pending+=dt/60*mult();
   if(Math.random()<dt/360){const jp=Math.random()<.12,g=Math.round((10+Math.random()*70)*mult()*(jp?5:1));S.pending+=g;if(jp)jackpot();else sparkle();toast((jp?"잭팟! ":"보너스 상자 ")+"+"+g+" XP")}
   setTier();renderGame();
@@ -413,7 +416,7 @@ function coin(st,t0){
   });
 }
 function jackpot(){
-  if(!ctx)return;const t=ctx.currentTime;
+  if(!ctx)return;if(S.mode==="myeonhak"){gongBig();return}const t=ctx.currentTime;
   riserAt(t,2,master);
   setTimeout(()=>{const t2=ctx.currentTime;impact(t2);for(let i=0;i<16;i++)coin(Math.floor(Math.random()*8),t2+i*.06);chime(true)},2000);
 }
@@ -441,7 +444,92 @@ function popStep(t,b){
     if(tier>=3&&e===13&&!mel.some(n=>n[0]>=12)){blip(tt,false);blip(tt+E,true)}
   }
 }
+/* ---------- 면학: 밤, 작은 책상, 푸른 등 하나. 시계 소리 위로 한 겹씩 쌓아 올리는 결의 ---------- */
+const MH_CH=[{r:38,v:[50,53,57]},{r:34,v:[46,50,53]},{r:36,v:[48,52,55]},{r:33,v:[45,48,52]}];
+const MH_PH=[
+  [[0,69,3],[3,72,1],[4,74,4],[8,72,2],[10,69,2],[12,67,4]],
+  [[0,69,2],[2,67,1],[3,65,1],[4,62,6],[10,65,2],[12,67,4]],
+  [[0,74,3],[3,77,1],[4,79,4],[8,77,2],[10,74,2],[12,72,4]],
+  [[0,69,2],[2,72,2],[4,74,3],[7,72,1],[8,69,4],[12,62,4]]
+];
+let mhPrev=69;
+function clockTick(t,hi){
+  const o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.value=hi?2100:1650;
+  g.gain.setValueAtTime(.03,t);g.gain.exponentialRampToValueAtTime(.0001,t+.03);
+  o.connect(g).connect(musicBus);o.start(t);o.stop(t+.04);
+}
+function thump(t,vel){
+  const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.setValueAtTime(75,t);o.frequency.exponentialRampToValueAtTime(38,t+.25);
+  g.gain.setValueAtTime(vel,t);g.gain.exponentialRampToValueAtTime(.0001,t+.5);
+  o.connect(g).connect(musicBus);o.start(t);o.stop(t+.55);
+}
+function drone(m,t,dur){
+  const o=ctx.createOscillator(),f=ctx.createBiquadFilter(),g=ctx.createGain();o.type="sawtooth";o.frequency.value=hz(m+keyShift);
+  f.type="lowpass";f.frequency.value=380;
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05,t+3);g.gain.setValueAtTime(.05,t+dur-1);g.gain.linearRampToValueAtTime(0,t+dur+2);
+  o.connect(f).connect(g).connect(musicBus);o.start(t);o.stop(t+dur+2.1);
+}
+// 가야금: 줄을 튕긴 직후 살짝 높았다가 제 음으로 내려앉는 맛
+function gpluck(m,t,vel){
+  const o=ctx.createOscillator(),f=ctx.createBiquadFilter(),g=ctx.createGain(),fr=hz(m+keyShift);o.type="sawtooth";
+  o.frequency.setValueAtTime(fr*1.03,t);o.frequency.exponentialRampToValueAtTime(fr,t+.06);
+  f.type="lowpass";f.Q.value=6;f.frequency.setValueAtTime(3500,t);f.frequency.exponentialRampToValueAtTime(300,t+.5);
+  g.gain.setValueAtTime(vel,t);g.gain.exponentialRampToValueAtTime(.0001,t+.9);
+  o.connect(f).connect(g);g.connect(musicBus);g.connect(rev);o.start(t);o.stop(t+.95);
+}
+function strings(v,t,dur,vel,bright){
+  v.forEach(m=>[-8,8].forEach(det=>{
+    const o=ctx.createOscillator(),f=ctx.createBiquadFilter(),g=ctx.createGain();o.type="sawtooth";o.frequency.value=hz(m+keyShift);o.detune.value=det;
+    f.type="lowpass";f.frequency.setValueAtTime(bright?500:900,t);if(bright)f.frequency.linearRampToValueAtTime(2600,t+dur);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vel,t+(bright?dur*.9:1));g.gain.linearRampToValueAtTime(0,t+dur+.6);
+    o.connect(f).connect(g);g.connect(musicBus);g.connect(rev);o.start(t);o.stop(t+dur+.7);
+  }));
+}
+// 해금: 앞 음에서 미끄러져 들어가고, 길게 끌수록 떨림이 깊어진다
+function haegeum(m,t,dur){
+  const o=ctx.createOscillator(),bp=ctx.createBiquadFilter(),g=ctx.createGain(),v=ctx.createOscillator(),vg=ctx.createGain();
+  o.type="sawtooth";o.frequency.setValueAtTime(hz(mhPrev+keyShift),t);o.frequency.exponentialRampToValueAtTime(hz(m+keyShift),t+.14);mhPrev=m;
+  v.frequency.value=5;vg.gain.setValueAtTime(0,t);vg.gain.linearRampToValueAtTime(25,t+Math.min(dur,.8));v.connect(vg).connect(o.detune);
+  bp.type="bandpass";bp.frequency.value=1300;bp.Q.value=.9;
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.07,t+.15);g.gain.setValueAtTime(.06,t+dur-.15);g.gain.linearRampToValueAtTime(0,t+dur+.1);
+  o.connect(bp).connect(g);g.connect(musicBus);g.connect(rev);o.start(t);v.start(t);o.stop(t+dur+.15);v.stop(t+dur+.15);
+}
+function gong(t,vel,dur){
+  [[110,1],[164,.6],[231,.45],[302,.3],[415,.2]].forEach(([f,a])=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=f;
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vel*a,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+dur*(1-a*.3));
+    o.connect(g);g.connect(master);g.connect(rev);o.start(t);o.stop(t+dur);
+  });
+}
+function bellToll(){
+  if(!ctx)return;const t=ctx.currentTime;
+  [[1,.06],[2.76,.025],[5.4,.012]].forEach(([mul,a])=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=hz(74)*mul;
+    g.gain.setValueAtTime(a,t);g.gain.exponentialRampToValueAtTime(.0001,t+3/mul+.5);
+    o.connect(g);g.connect(master);g.connect(rev);o.start(t);o.stop(t+3.6);
+  });
+}
+function gongBig(){
+  if(!ctx)return;strings([62,65,69,74],ctx.currentTime,2,.03,true);
+  setTimeout(()=>{gong(ctx.currentTime,.22,7);thump(ctx.currentTime,.5)},2000);
+}
+function mhStep(t,b){
+  const bar=Math.floor(b/4),p=b%4,pi=Math.floor(bar/4)%4,ch=MH_CH[bar%4],B=BEAT;
+  clockTick(t,p%2===0);
+  if(p===0){thump(t,.22);thump(t+B*.35,.12)}
+  if(b%16===0){drone(38,t,16*B);drone(45,t,16*B)}
+  if(tier>=1){const pat=[ch.v[0]+12,ch.v[2]+12,ch.v[0]+24,ch.v[2]+12];for(let k=0;k<2;k++)gpluck(pat[(p*2+k)%4],t+k*B/2,.045)}
+  if(tier>=2&&p===0){strings(ch.v,t,4*B,.018,false);pluck(ch.r,t,400,.12,1.2)}
+  if(tier>=3)MH_PH[pi].forEach(n=>{if(n[0]===b%16)haegeum(n[1],t,n[2]*B*.95)});
+  if(tier>=4){
+    if(p===0)strings(ch.v.map(m=>m+12),t,4*B,.02,true);
+    if(p===2)thump(t,.3);
+    if(bar%16===0&&p===0)gong(t,.12,6);
+    if(bar%4===3&&p===3)for(let k=0;k<4;k++)thump(t+k*B/4,.12+k*.05);
+  }
+}
 function step(t,b){
+  if(S.mode==="myeonhak"){mhStep(t,b);return}
   if(S.mode==="pop"){popStep(t,b);return}
   const lofi=S.mode==="lofi";
   if(b%16===0){
@@ -548,19 +636,21 @@ $("reset").onclick=e=>{
   const b=e.currentTarget;
   if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="한 번 더";armT=setTimeout(()=>{b.classList.remove("armed");b.textContent="초기화"},2500);return}
   clearTimeout(armT);b.classList.remove("armed");b.textContent="초기화";
-  if(S.running)pause();S.acc=0;S.leaves=0;S.urges=0;S.pending=0;comboBreak();lastFocus=null;$("play").textContent="시작";stats();render();save();toast("처음부터.");
+  if(S.running)pause();S.acc=0;S.leaves=0;S.urges=0;S.pending=0;S.wasted=0;comboBreak();lastFocus=null;$("play").textContent="시작";stats();render();save();toast("처음부터.");
 };
-function stats(){$("leaves").textContent=S.leaves;$("urges").textContent=S.urges}
+let hiddenAt=0;
+function stats(){$("leaves").textContent=S.leaves;$("urges").textContent=S.urges;$("wasted").textContent=fmt(S.wasted||0)}
 $("urge").onclick=()=>{S.urges++;S.pending+=5*mult();sparkle();renderGame();stats();save();const m=["잘 참았다. 숨 한 번 쉬고 다음 줄.","인스타는 휴식 시간에도 안 봐도 됩니다.","그 피드 내일도 똑같아요.","지금 이 문제 하나만 끝내고."];toast(m[S.urges%m.length])};
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden){
     if(S.running&&isFocus()){
-      S.leaves++;stats();
+      S.leaves++;hiddenAt=Date.now();stats();
       if(S.penalty){const e=elapsed();S.acc=Math.max(Math.floor(e/CYCLE)*CYCLE,e-300);S.runStart=Date.now();alarmOn()}
       S.pending=Math.floor(S.pending/2);comboBreak();
       save();
     }
   }else{
+    if(hiddenAt){S.wasted=(S.wasted||0)+(Date.now()-hiddenAt)/1000;hiddenAt=0;stats();save()}
     alarmOff();
     if(S.running){lock();if(isFocus())toast("어디 갔다 왔어요? 이탈 "+S.leaves+"회째."+(S.penalty?" 벌칙으로 5분 되감았어요.":"")+" 이번 교시 XP 절반 몰수, 악기도 킥만 남았어요.")}
   }
