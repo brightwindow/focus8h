@@ -82,7 +82,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <div class="wrap">
   <header>
     <h1>8시간 몰입실</h1>
-    <span class="sub">50분 집중 · 10분 휴식 × 8 · v10</span>
+    <span class="sub">50분 집중 · 10분 휴식 × 8 · v11</span>
   </header>
 
   <div class="ring">
@@ -134,7 +134,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
   <div class="panel">
     <div class="seg" role="group" aria-label="음악 종류">
-      <button id="m-pop" data-mode="pop" aria-pressed="true">중독 팝 (풀 편곡)</button>
+      <button id="m-pop" data-mode="pop" aria-pressed="true">중독 팝 (후렴·보컬·펌핑)</button>
       <button id="m-drive" data-mode="drive" aria-pressed="false">드라이브</button>
       <button id="m-ambient" data-mode="ambient" aria-pressed="false">앰비언트</button>
       <button id="m-lofi" data-mode="lofi" aria-pressed="false">로파이 비트</button>
@@ -171,7 +171,7 @@ const save=()=>{try{localStorage.setItem("focus8h",JSON.stringify({...S,acc:elap
 const elapsed=()=>Math.min(TOTAL,S.acc+(S.running?(Date.now()-S.runStart)/1000:0));
 
 /* ---------- 오디오 엔진 ---------- */
-let ctx,master,musicBus,toneF,noiseGain,padFilter,rev,sched,lfo;
+let ctx,master,musicBus,pumpG,kickBus,toneF,noiseGain,padFilter,rev,sched,lfo;
 const bpmFor=m=>m==="pop"?132:m==="drive"?124:70;
 let BEAT=60/bpmFor(S.mode);
 let nextT=0,beat=0,chordIdx=0,prog=0,keyShift=0,curChord=null;
@@ -194,7 +194,7 @@ function initAudio(){
   master=ctx.createGain();master.gain.value=.9;
   const comp=ctx.createDynamicsCompressor();comp.threshold.value=-18;comp.ratio.value=3;
   master.connect(comp).connect(ctx.destination);
-  musicBus=ctx.createGain();toneF=ctx.createBiquadFilter();toneF.type="lowpass";toneF.frequency.value=18000;musicBus.connect(toneF).connect(master);
+  musicBus=ctx.createGain();toneF=ctx.createBiquadFilter();toneF.type="lowpass";toneF.frequency.value=18000;pumpG=ctx.createGain();kickBus=ctx.createGain();musicBus.connect(pumpG).connect(toneF).connect(master);kickBus.connect(toneF);
   rev=ctx.createConvolver();rev.buffer=impulse(4);
   const revG=ctx.createGain();revG.gain.value=.55;rev.connect(revG).connect(musicBus);
   padFilter=ctx.createBiquadFilter();padFilter.type="lowpass";padFilter.frequency.value=900;padFilter.Q.value=.4;
@@ -213,7 +213,7 @@ function applyVol(){
   if(!ctx)return;
   const rest=!isFocus()&&S.running;
   const m=S.mode==="noise"?0:(S.vMusic/100)*.5*(rest?.45:1)*(ducking?.35:1);
-  musicBus.gain.setTargetAtTime(m,ctx.currentTime,.8);
+  musicBus.gain.setTargetAtTime(m,ctx.currentTime,.8);kickBus.gain.setTargetAtTime(m,ctx.currentTime,.8);
   noiseGain.gain.setTargetAtTime((S.vNoise/100)*.35,ctx.currentTime,.5);
 }
 function pad(chord,t,dur){
@@ -252,7 +252,7 @@ function kick(t){
   const o=ctx.createOscillator(),g=ctx.createGain();
   o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(42,t+.18);
   g.gain.setValueAtTime(.22,t);g.gain.exponentialRampToValueAtTime(.0001,t+.4);
-  o.connect(g).connect(musicBus);o.start(t);o.stop(t+.45);
+  o.connect(g).connect(kickBus||musicBus);o.start(t);o.stop(t+.45);
 }
 function chime(up){
   if(!ctx)return;const t=ctx.currentTime+.05;
@@ -303,7 +303,7 @@ function alarmOn(){
   o.type="square";o.frequency.value=880;gate.type="square";gate.frequency.value=2.5;
   g.gain.value=.5;gg.gain.value=.5;out.gain.value=.05;
   gate.connect(gg).connect(g.gain);o.connect(g).connect(out).connect(master);o.start();gate.start();
-  musicBus.gain.setTargetAtTime(0,ctx.currentTime,.1);
+  musicBus.gain.setTargetAtTime(0,ctx.currentTime,.1);kickBus.gain.setTargetAtTime(0,ctx.currentTime,.1);
   alarm={o,gate,out};
 }
 function alarmOff(){if(!alarm)return;alarm.o.stop();alarm.gate.stop();alarm.out.disconnect();alarm=null;applyVol()}
@@ -523,29 +523,45 @@ function jackpot(){
   riserAt(t,2,master);
   setTimeout(()=>{const t2=ctx.currentTime;impact(t2);for(let i=0;i<16;i++)coin(Math.floor(Math.random()*8),t2+i*.06);chime(true)},2000);
 }
+// 보컬 촙: 톱니파를 모음 공명대(포먼트)에 통과시켜 "오-아" 같은 사람 목소리 느낌을 낸다
+const FORM={a:[800,1150,2900],o:[450,800,2830],u:[325,700,2530],e:[400,1700,2600]};
+function vox(m,t,dur,vw,vel){
+  const o=ctx.createOscillator(),g=ctx.createGain(),out=ctx.createGain(),v=ctx.createOscillator(),vg=ctx.createGain(),f=hz(m+keyShift);
+  o.type="sawtooth";o.frequency.setValueAtTime(f*.97,t);o.frequency.exponentialRampToValueAtTime(f,t+.05);
+  v.frequency.value=6;vg.gain.value=dur>.25?18:0;v.connect(vg).connect(o.detune);
+  FORM[vw].forEach((fr,i)=>{const bp=ctx.createBiquadFilter(),fg=ctx.createGain();bp.type="bandpass";bp.frequency.value=fr;bp.Q.value=8;fg.gain.value=[1,.6,.25][i];o.connect(bp).connect(fg).connect(g)});
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vel,t+.02);g.gain.setValueAtTime(vel,t+dur*.7);g.gain.linearRampToValueAtTime(0,t+dur);
+  out.gain.value=3;g.connect(out);out.connect(musicBus);out.connect(rev);o.start(t);v.start(t);o.stop(t+dur+.05);v.stop(t+dur+.05);
+}
+// 펌핑: 킥이 칠 때마다 나머지 소리가 숨을 쉬듯 눌렸다 솟는다
+function pump(t){if(!pumpG)return;pumpG.gain.cancelScheduledValues(t);pumpG.gain.setValueAtTime(.35,t);pumpG.gain.linearRampToValueAtTime(1,t+BEAT*.6)}
+// 구성: 후렴 8마디(전부) → 벌스 6마디(덜어내기) → 빌드업 2마디 → 쾅, 다시 후렴. 덜어냈다가 터뜨리는 대비가 중독을 만든다
 function popStep(t,b){
-  const tier=4;
   const E=BEAT/2,bar=Math.floor(b/4),si=Math.floor(bar/2)%SONG.length,bi=b%8,p=b%4,sec=SONG[si],ch=CH[sec.c[Math.floor(bi/4)]];
   const loop=Math.floor(b/(SONG.length*8));
   if(loop!==popLoop){popLoop=loop;popMel=loop===0?SONG.map(x=>x.m):SONG.map(x=>mutate(x.m))}
-  const build=tier>=2&&si===7;
-  if(tier>=2&&si===0&&bi===0&&b>0)impact(t);
-  if(!(build&&bi===7))if(tier>=1||p===0||p===2)kick(t);
-  if(tier>=1&&!build){if(p===1||p===3)noiseHit(t,"snare");noiseHit(t+E,"hat");if(tier>=3)noiseHit(t+E*1.5,"hat")}
-  if(build){
-    if(bi===0)riserAt(t,8*BEAT);
-    const n=bi<4?2:bi<7?4:0;for(let k=0;k<n;k++)noiseHit(t+k*BEAT/n,"snare");
+  const chorus=si<4,build=si===7,verse=!chorus&&!build,gap=build&&bi===7;
+  if(si===0&&bi===0&&b>0)impact(t);
+  if(!gap&&(chorus||p===0||p===2)){kick(t);if(chorus)pump(t)}
+  if(chorus){if(p===1||p===3)noiseHit(t,"snare");noiseHit(t+E,"hat");noiseHit(t+E*1.5,"hat")}
+  if(verse){if(p===2)noiseHit(t,"snare");noiseHit(t+E,"hat")}
+  if(build){if(bi===0)riserAt(t,8*BEAT);const n=bi<4?2:bi<7?4:0;for(let k=0;k<n;k++)noiseHit(t+k*BEAT/n,"snare")}
+  if(!gap){
+    if(chorus){pluck(ch.r,t,1000,.11,.16);pluck(ch.r+12,t+E,1200,.09,.14);if(p===3)pluck(ch.r+12,t+E*1.5,1200,.07,.1)}
+    else if(p===0)pluck(ch.r,t,500,.1,BEAT*1.8);
   }
-  if(tier>=2&&!(build&&bi===7)){pluck(ch.r,t,900,.1,.18);pluck(ch.r+12,t+E,900,.08,.15)}
-  if(tier>=3)ch.v.forEach(m=>pluck(m,t+E,2200,.02,.14));
+  if(chorus||verse)ch.v.forEach(m=>pluck(m,t+E,chorus?2400:1500,chorus?.022:.015,.14));
   const mel=popMel[si],types=["square","triangle","sawtooth"];
   for(let k=0;k<2;k++){
     const e=bi*2+k,tt=t+k*E;
     mel.filter(n=>n[0]===e).forEach(n=>{
       bell(n[1],tt,.11);
-      if(tier>=4){lead(n[1],tt,n[2]*E*.92,types[popLoop%3],.035);bell(dia(n[1],-2),tt,.05)}
+      if(chorus){lead(n[1],tt,n[2]*E*.92,types[popLoop%3],.035);lead(n[1]+12,tt,n[2]*E*.9,"triangle",.015);bell(dia(n[1],-2),tt,.05)}
+      else if(verse&&n[2]>=2)vox(n[1]-12,tt,n[2]*E*.9,"u",.1);
     });
-    if(tier>=3&&e===13&&!mel.some(n=>n[0]>=12)){blip(tt,false);blip(tt+E,true)}
+    // 빈 박자를 "오-아"로 대답: 귀에 남는 건 이 빈칸 메우기다
+    if(chorus&&e===13&&!mel.some(n=>n[0]>=12)){vox(76,tt,E*.9,"o",.13);vox(79,tt+E,E*1.8,"a",.14)}
+    if(chorus&&si%2===0&&e===15)vox(74,tt,E*.8,"e",.1);
   }
 }
 function step(t,b){
