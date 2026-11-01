@@ -79,7 +79,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <div class="wrap">
   <header>
     <h1>8시간 몰입실</h1>
-    <span class="sub">50분 집중 · 10분 휴식 × 8</span>
+    <span class="sub">50분 집중 · 10분 휴식 × 8 · v4</span>
   </header>
 
   <div class="ring">
@@ -130,7 +130,6 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <label class="row" for="vMusic">음악 <input id="vMusic" type="range" min="0" max="100" value="70"><output id="oMusic">70</output></label>
     <label class="row" for="vNoise">빗소리 <input id="vNoise" type="range" min="0" max="100" value="30"><output id="oNoise">30</output></label>
     <label class="tog" for="tPenalty"><input id="tPenalty" type="checkbox"> 이탈 벌칙 <small>집중 중에 나가면 경보음 + 5분 되감기</small></label>
-    <label class="tog" for="tCheck"><input id="tCheck" type="checkbox"> 생존 확인 <small>8~15분마다 30초 안에 눌러야 함</small></label>
     <label class="tog" for="tBin"><input id="tBin" type="checkbox"> 40Hz 바이노럴 <small>이어폰 전용, 낮게 웅웅거리는 소리</small></label>
   </div>
 
@@ -144,13 +143,6 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   </div>
 </div>
 
-<div class="check" id="check" hidden>
-  <div>
-    <p class="phase">생존 확인</p>
-    <p id="checkLeft">30초 안에 누르세요</p>
-    <button class="primary" id="checkBtn">공부 중 맞음</button>
-  </div>
-</div>
 
 <script>
 (()=>{
@@ -326,7 +318,7 @@ function downer(){
 
 /* ---------- 보상 시스템: 버틸수록 음악이 완성되고, 나가면 날아간다 ---------- */
 const TIERS=[0,5,12,20,30],TIER_NAMES=["킥","하이햇","베이스","아르페지오","리드"];
-let tier=0,comboSec=0,lastTick=0,nextCheck=0,checkDeadline=0,checkFailed=false;
+let tier=0,comboSec=0,lastTick=0;
 const mult=()=>1+tier*.5;
 function setTier(){
   const m=comboSec/60;let t=0;TIERS.forEach((th,i)=>{if(m>=th)t=i});
@@ -341,24 +333,12 @@ function bank(){
   const g=Math.round(S.pending);if(g<=0)return;
   S.xp+=g;S.pending=0;sparkle();save();renderGame();return g;
 }
-function openCheck(){nextCheck=0;checkFailed=false;checkDeadline=Date.now()+30000;$("check").hidden=false;chime(false)}
 function game(){
   const now=Date.now(),dt=lastTick?Math.min(2,(now-lastTick)/1000):0;lastTick=now;
-  if(checkDeadline){
-    const left=checkDeadline-now;
-    if(left>0)$("checkLeft").textContent=Math.ceil(left/1000)+"초 안에 누르세요";
-    else{
-      $("checkLeft").textContent="늦었어요. 콤보 끊김. 눌러야 경보가 멈춥니다.";
-      if(!checkFailed){checkFailed=true;comboBreak()}
-      if(!alarm&&!document.hidden)alarmOn();
-    }
-    return;
-  }
   if(!S.running||!isFocus()||document.hidden||elapsed()>=TOTAL)return;
   comboSec+=dt;S.best=Math.max(S.best,comboSec);
   S.pending+=dt/60*mult();
   if(Math.random()<dt/360){const g=Math.round((10+Math.random()*70)*mult());S.pending+=g;sparkle();toast("보너스 상자 +"+g+" XP")}
-  if(S.check){if(!nextCheck)nextCheck=now+(8+Math.random()*7)*60000;if(now>nextCheck)openCheck()}
   setTier();renderGame();
 }
 function renderGame(){
@@ -370,12 +350,6 @@ function renderGame(){
   [...$("tiers").children].forEach((c,i)=>c.classList.toggle("on",i<=tier));
   $("nextTier").textContent=tier<4?TIER_NAMES[tier+1]+" 해금까지 "+fmt(TIERS[tier+1]*60-comboSec)+" 버티기. 나가면 킥만 남고 처음부터.":"전 악기 해금. 지금이 이 곡의 완성본입니다. 나가면 다 날아가요.";
 }
-$("checkBtn").onclick=()=>{
-  $("check").hidden=true;alarmOff();
-  if(!checkFailed){const g=Math.round(15*mult());S.pending+=g;sparkle();toast("확인 완료 +"+g+" XP")}
-  else toast("다음엔 30초 안에.");
-  checkDeadline=0;checkFailed=false;nextCheck=0;
-};
 function step(t,b){
   const lofi=S.mode==="lofi";
   if(b%16===0){
@@ -473,7 +447,7 @@ $("fs").onclick=()=>{
   const d=document,p=d.fullscreenElement?d.exitFullscreen():d.documentElement.requestFullscreen?.();
   Promise.resolve(p).catch(()=>toast("이 화면에선 전체화면이 안 돼요."));
 };
-[["tPenalty","penalty"],["tBin","bin"],["tCheck","check"]].forEach(([id,k])=>{
+[["tPenalty","penalty"],["tBin","bin"]].forEach(([id,k])=>{
   $(id).checked=S[k];
   $(id).onchange=e=>{S[k]=e.target.checked;if(k==="bin")setBinaural(S.bin&&S.running);save()};
 });
